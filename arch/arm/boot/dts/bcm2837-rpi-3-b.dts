@@ -76,3 +76,31 @@
 	pinctrl-0 = <&pwm0_gpio40 &pwm1_gpio41>;
 	status = "okay";
 };
+
+&i2c0 {
+	pinctrl-0 = <&i2c0_gpio44>;
+
+	camera-sensor@10 {
+		compatible = "onnn,ar0144";
+		reg = <0x10>;
+
+		port {
+			ar0144_0: endpoint {
+				remote-endpoint = <&csi1_ep>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&csi1 {
+	status = "okay";
+
+	port {
+		csi1_ep: endpoint {
+			remote-endpoint = <&ar0144_0>;
+			data-lanes = <1 2>;
+		};
+	};
+};
