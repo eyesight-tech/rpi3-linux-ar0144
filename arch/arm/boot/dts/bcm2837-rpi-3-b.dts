@@ -83,6 +83,7 @@
 	camera-sensor@10 {
 		compatible = "onnn,ar0144";
 		reg = <0x10>;
+		reset-gpios = <&expgpio 6 GPIO_ACTIVE_LOW>;
 
 		port {
 			ar0144_0: endpoint {
