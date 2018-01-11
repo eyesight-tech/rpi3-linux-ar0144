@@ -995,6 +995,8 @@ static void unicam_set_packing_config(struct unicam_device *dev)
 	int mbus_depth = find_mbus_depth_by_code(dev->fmt->code);
 	int v4l2_depth = dev->fmt->depth;
 
+	printk("%s: mbus_depth: %d v4l2_depth: %d\n", __func__, mbus_depth,
+	       v4l2_depth);
 	if (mbus_depth == v4l2_depth) {
 		unpack = UNICAM_PUM_NONE;
 		pack = UNICAM_PPM_NONE;
@@ -1041,6 +1043,7 @@ static void unicam_set_packing_config(struct unicam_device *dev)
 		}
 	}
 
+	printk("%s: unpack: %d pack: %d\n", __func__, unpack, pack);
 	val = 0;
 	set_field(&val, 2, UNICAM_DEBL_MASK);
 	set_field(&val, unpack, UNICAM_PUM_MASK);
@@ -1205,6 +1208,8 @@ void unicam_start_rx(struct unicam_device *dev, unsigned long addr)
 	}
 
 	unicam_wr_dma_config(dev, dev->v_fmt.fmt.pix.bytesperline);
+	printk("%s: bytesperline: %u\n", __func__,
+	       dev->v_fmt.fmt.pix.bytesperline);
 	unicam_wr_dma_addr(dev, addr);
 	unicam_set_packing_config(dev);
 	unicam_cfg_image_id(dev);
@@ -1288,6 +1293,7 @@ static int unicam_start_streaming(struct vb2_queue *vq, unsigned int count)
 	}
 
 	dev->active_data_lanes = dev->max_data_lanes;
+	printk("%s: bus_type: %d\n", __func__, dev->bus_type);
 	if (dev->bus_type == V4L2_MBUS_CSI2 &&
 	    v4l2_subdev_has_op(dev->sensor, video, g_mbus_config)) {
 		struct v4l2_mbus_config mbus_config;
@@ -1323,6 +1329,7 @@ static int unicam_start_streaming(struct vb2_queue *vq, unsigned int count)
 					 V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK))
 			unicam_err(dev, "g_mbus_format returned different clocking mode to DT\n");
 	}
+	printk("%s: active_data_lanes: %d\n", __func__, dev->active_data_lanes);
 	if (dev->active_data_lanes > dev->max_data_lanes) {
 		unicam_err(dev, "Device has requested %u data lanes, which is >%u configured in DT\n",
 			   dev->active_data_lanes,
@@ -1345,6 +1352,7 @@ static int unicam_start_streaming(struct vb2_queue *vq, unsigned int count)
 		unicam_err(dev, "Failed to enable CSI clock: %d\n", ret);
 		goto err_pm_put;
 	}
+	printk("%s: call s_power\n", __func__);
 	ret = v4l2_subdev_call(dev->sensor, core, s_power, 1);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		unicam_err(dev, "power on failed in subdev\n");
@@ -1352,14 +1360,17 @@ static int unicam_start_streaming(struct vb2_queue *vq, unsigned int count)
 	}
 	dev->streaming = 1;
 
+	printk("%s: call unicam_start_rx\n", __func__);
 	unicam_start_rx(dev, addr);
 
+	printk("%s: call s_stream\n", __func__);
 	ret = v4l2_subdev_call(dev->sensor, video, s_stream, 1);
 	if (ret < 0) {
 		unicam_err(dev, "stream on failed in subdev\n");
 		goto err_disable_unicam;
 	}
 
+	printk("%s: done\n", __func__);
 	return 0;
 
 err_disable_unicam:
