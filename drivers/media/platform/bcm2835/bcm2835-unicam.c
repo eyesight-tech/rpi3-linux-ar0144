@@ -505,10 +505,13 @@ static const struct unicam_fmt *find_format_by_code(struct unicam_device *dev,
 	const struct unicam_fmt *fmt;
 	unsigned int k;
 
+	printk("%s: code: %x\n", __func__, code);
 	for (k = 0; k < dev->num_active_fmt; k++) {
 		fmt = &dev->active_fmts[k];
-		if (fmt->code == code)
+		if (fmt->code == code) {
+			printk("%s: k: %u\n", __func__, k);
 			return fmt;
+		}
 	}
 
 	return NULL;
@@ -520,10 +523,13 @@ static const struct unicam_fmt *find_format_by_pix(struct unicam_device *dev,
 	const struct unicam_fmt *fmt;
 	unsigned int k;
 
+	printk("%s: pixelformat: %x\n", __func__, pixelformat);
 	for (k = 0; k < dev->num_active_fmt; k++) {
 		fmt = &dev->active_fmts[k];
-		if (fmt->fourcc == pixelformat)
+		if (fmt->fourcc == pixelformat) {
+			printk("%s: k: %u\n", __func__, k);
 			return fmt;
+		}
 	}
 
 	return NULL;
@@ -535,7 +541,7 @@ static void dump_active_formats(struct unicam_device *dev)
 	char fourcc_str[V4L2_FOURCC_MAX_SIZE];
 
 	for (i = 0; i < dev->num_active_fmt; i++) {
-		unicam_dbg(3, dev, "active_fmt[%d] (%p) is code %04X, fourcc %s, depth %d\n",
+		unicam_info(dev, "active_fmt[%d] (%p) is code %04X, fourcc %s, depth %d\n",
 			   i, &dev->active_fmts[i], dev->active_fmts[i].code,
 			   v4l2_fourcc2s(dev->active_fmts[i].fourcc,
 					 fourcc_str),
@@ -621,6 +627,10 @@ static int unicam_calc_format_size_bpl(struct unicam_device *dev,
 			      0);
 
 	min_bytesperline = bytes_per_line(f->fmt.pix.width, fmt);
+	printk("%s: min_bytesperline: %u width: %u depth: %u\n", __func__,
+	       min_bytesperline, f->fmt.pix.width, fmt->depth);
+	printk("%s: fourcc: %x code: %x\n", __func__,
+	       fmt->fourcc, fmt->code);
 
 	if (f->fmt.pix.bytesperline > min_bytesperline &&
 	    f->fmt.pix.bytesperline <= MAX_BYTESPERLINE)
@@ -657,6 +667,7 @@ static int unicam_reset_format(struct unicam_device *dev)
 			   dev->fmt->code, mbus_fmt.code);
 		return ret;
 	}
+	printk("%s: code: %x\n", __func__, mbus_fmt.code);
 
 	v4l2_fill_pix_format(&dev->v_fmt.fmt.pix, &mbus_fmt);
 	dev->v_fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -902,6 +913,7 @@ static int unicam_s_fmt_vid_cap(struct file *file, void *priv,
 	}
 
 	dev->fmt = fmt;
+	printk("%s: fourcc: %x\n", __func__, fmt->fourcc);
 	dev->v_fmt.fmt.pix.pixelformat = f->fmt.pix.pixelformat;
 	dev->v_fmt.fmt.pix.bytesperline = f->fmt.pix.bytesperline;
 	unicam_reset_format(dev);
@@ -1360,8 +1372,13 @@ static int unicam_start_streaming(struct vb2_queue *vq, unsigned int count)
 	}
 	dev->streaming = 1;
 
-	printk("%s: call unicam_start_rx\n", __func__);
+	printk("%s: call unicam_start_rx STA: %x ISTA: %x\n", __func__,
+	       reg_read(&dev->cfg, UNICAM_STA),
+	       reg_read(&dev->cfg, UNICAM_ISTA));
 	unicam_start_rx(dev, addr);
+	printk("%s: after unicam_start_rx STA: %x ISTA: %x\n", __func__,
+	       reg_read(&dev->cfg, UNICAM_STA),
+	       reg_read(&dev->cfg, UNICAM_ISTA));
 
 	printk("%s: call s_stream\n", __func__);
 	ret = v4l2_subdev_call(dev->sensor, video, s_stream, 1);
@@ -1369,6 +1386,9 @@ static int unicam_start_streaming(struct vb2_queue *vq, unsigned int count)
 		unicam_err(dev, "stream on failed in subdev\n");
 		goto err_disable_unicam;
 	}
+	printk("%s: after s_stream STA: %x ISTA: %x\n", __func__,
+	       reg_read(&dev->cfg, UNICAM_STA),
+	       reg_read(&dev->cfg, UNICAM_ISTA));
 
 	printk("%s: done\n", __func__);
 	return 0;
@@ -1402,6 +1422,9 @@ static void unicam_stop_streaming(struct vb2_queue *vq)
 	struct unicam_buffer *buf, *tmp;
 	unsigned long flags;
 
+	printk("%s: STA: %x ISTA: %x\n", __func__,
+	       reg_read(&dev->cfg, UNICAM_STA),
+	       reg_read(&dev->cfg, UNICAM_ISTA));
 	if (v4l2_subdev_call(dev->sensor, video, s_stream, 0) < 0)
 		unicam_err(dev, "stream off failed in subdev\n");
 
@@ -1828,6 +1851,8 @@ static int unicam_probe_complete(struct unicam_device *unicam)
 		return -EINVAL;
 	}
 	unicam->fmt = fmt;
+	printk("%s: code: %x fourcc: %x depth: %u\n", __func__, fmt->code,
+	       fmt->fourcc, fmt->depth);
 	unicam->v_fmt.fmt.pix.pixelformat  = fmt->fourcc;
 
 	/* Read current subdev format */
@@ -2047,6 +2072,7 @@ static int of_unicam_connect_subdevs(struct unicam_device *dev)
 	unicam_dbg(3, dev, "v4l2-endpoint: %s\n",
 		   dev->bus_type == V4L2_MBUS_CSI2 ? "CSI2" : "CCP2");
 	unicam_dbg(3, dev, "Virtual Channel=%d\n", dev->virtual_channel);
+	printk("%s: channel: %d\n", __func__, dev->virtual_channel);
 	if (dev->bus_type == V4L2_MBUS_CSI2)
 		unicam_dbg(3, dev, "flags=0x%08x\n",
 			   ep->bus.mipi_csi2.flags);
